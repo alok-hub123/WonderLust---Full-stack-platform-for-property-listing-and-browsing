@@ -1,27 +1,12 @@
 const express = require('express');
 const router = express.Router({mergeParams: true});
 const wrapAsync = require('../utils/wrapAsync.js');
-const {listingSchema} = require('../schema.js');
 const Listing = require('../models/listing.js');
-const ExpressError = require('../utils/ExpressError.js');
-const isLoggedIn = require('../middleware.js').isLoggedIn;
+const { isOwner, isLoggedIn, validateListing } = require('../middleware.js');
+const listingController = require("")
 
-//validating data using Joi
-const validateListing = (req, res, next) => {
-    const { error } = listingSchema.validate(req.body);
-    if (error) {
-        const msg = error.details.map((el) => el.message).join(",");
-        throw new ExpressError(400, msg);
-    } else {
-        next();
-    }
-};
-
-//listing route
-router.get('/', wrapAsync(async (req, res) => {
-    const allListings = await Listing.find();
-    res.render('listings/index.ejs', { allListings });
-}));
+//index route
+router.get('/', wrapAsync());
 
 //new route
 router.get('/new', isLoggedIn, (req, res) => {
@@ -30,7 +15,14 @@ router.get('/new', isLoggedIn, (req, res) => {
 
 //Show route
 router.get('/:id', wrapAsync(async (req, res) => {
-    const listing = await Listing.findById(req.params.id).populate('reviews');  // populate the reviews field means since we are using reference od review in listing model so when try to access it will show Object id only so to see te data we need to populate it
+    const listing = await Listing.findById(req.params.id)
+        .populate({
+            path:'reviews',
+            populate: {
+                path: "author",
+            },
+        })
+        .populate("owner");  // populate the reviews field means since we are using reference of review in listing model so when try to access it will show Object id only so to see the data we need to populate it
      if(!listing) {
         req.flash("error", "Listing not found");
         return res.redirect("/listings");
@@ -39,8 +31,9 @@ router.get('/:id', wrapAsync(async (req, res) => {
 }));
 
 //create route
-router.post("/", validateListing, wrapAsync(async (req, res, next) => {
+router.post("/", isLoggedIn, validateListing, wrapAsync(async (req, res, next) => {
     const newListing = new Listing(req.body.listings);
+    newListing.owner = req.user._id;
     await newListing.save();
     req.flash("success", "Successfully created a new listing!"); // flash message
     res.redirect("/listings");
@@ -48,7 +41,7 @@ router.post("/", validateListing, wrapAsync(async (req, res, next) => {
 );
 
 //edit route
-router.get("/:id/edit", isLoggedIn, wrapAsync(async (req, res) => {
+router.get("/:id/edit", isLoggedIn, isOwner, wrapAsync(async (req, res) => {
     const listing = await Listing.findById(req.params.id);
     if(!listing) {
         req.flash("error", "Listing not found");
@@ -58,7 +51,7 @@ router.get("/:id/edit", isLoggedIn, wrapAsync(async (req, res) => {
 }));
 
 //update route
-router.put("/:id", isLoggedIn, validateListing, wrapAsync(async (req, res) => {
+router.put("/:id", isLoggedIn, isOwner, validateListing, wrapAsync(async (req, res) => {
     let { id } = req.params;
     await Listing.findByIdAndUpdate(id, { ...req.body.listings });
     req.flash("success", "Successfully updated a listing!"); // flash message
@@ -66,7 +59,7 @@ router.put("/:id", isLoggedIn, validateListing, wrapAsync(async (req, res) => {
 }));
 
 //delete route
-router.delete("/:id", isLoggedIn, wrapAsync(async (req, res) => {
+router.delete("/:id", isLoggedIn, isOwner, wrapAsync(async (req, res) => {
     let { id } = req.params;
     let deletedListing = await Listing.findByIdAndDelete(id);
     req.flash("success", "Successfully deleted a listing!");
