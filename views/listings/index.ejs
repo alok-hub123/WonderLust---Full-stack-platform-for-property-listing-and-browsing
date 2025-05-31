@@ -1,7 +1,7 @@
 <% layout("/layouts/boilerplate") %> 
 
     <body>
-        <h3>All Listings</h3>
+        <h3 class="mt-3">All Listings</h3>
         <!-- <form action="/listings/new" method="GET">
              <button>Create New Listing</button>
         </form> -->
@@ -10,7 +10,7 @@
             <% allListings.forEach(function(listing) { %>
                 <a href="/listings/<%= listing._id %>" class="listing-link">
                 <div class="card col listing-card">
-                    <img src="<%= listing.image %>" class="card-img-top" alt="listing_image" style="height: 20rem;">
+                    <img src="<%= listing.image.url %>" class="card-img-top" alt="listing_image" style="height: 20rem;">
                     <div class="card-img-overlay"></div>
                     <div class="card-body">
                         <p class="card-text">
